@@ -5,7 +5,7 @@ plugins {
     application
 }
 
-group = "me.guoyukun"
+group = "com.example.gyk"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -21,7 +21,7 @@ tasks.test {
 }
 
 tasks.withType<KotlinCompile>() {
-    kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions.jvmTarget = "16"
 }
 
 application {
