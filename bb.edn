@@ -1,0 +1,67 @@
+{:paths ["."]
+ :deps {}
+ :min-bb-version "1.3.183"
+ :tasks
+   {:requires ([babashka.fs :as fs]
+               [babashka.process :refer [sh]]
+               [make]
+               [cheshire.core :as json]
+               [clojure.string :as str])
+    ;; task hooks
+    :init     (do (defn env [s] (System/getenv s))
+                  (defn current-date
+                    []
+                    (let [date      (java.time.LocalDateTime/now)
+                          formatter (java.time.format.DateTimeFormatter/ofPattern
+                                      "yyyy-MM-dd HH:mm:ss")]
+                      (.format date formatter)))
+                  (def ansi-green "\u001B[32m")
+                  (def ansi-reset "\u001B[0m")
+                  (def ansi-yellow "\u001B[33m")
+                  (def kotlinc-root (env "KOTLINC"))
+                  (def windows?
+                    (-> (System/getProperty "os.name")
+                        (str/lower-case)
+                        (str/starts-with? "win")))
+                  (defn sh*
+                    ([args] (sh* nil args))
+                    ([opts args]
+                     (apply shell
+                       opts
+                       (concat
+                         (if windows? ["pwsh" "-C"] [])
+                         (if (sequential? args) args [args])))))
+                  (when (not= (.getEncoding *out*) "UTF8")
+                    (alter-var-root (var *out*)
+                                    (constantly (java.io.OutputStreamWriter.
+                                                 (System/out)
+                                                 "UTF8")))
+                    (println "!!!" (.getEncoding *out*))))
+    :enter    (let [{:keys [name]} (current-task)]
+                (println (clojure.core/format "%s[✔︎] %s %s%s"
+                                              ansi-yellow
+                                              name
+                                              (current-date)
+                                              ansi-reset)))
+    :leave    (let [{:keys [name]} (current-task)]
+                (println (clojure.core/format "%s[✔︎] %s %s%s"
+                                              ansi-green
+                                              name
+                                              (current-date)
+                                              ansi-reset)))
+    ;; tasks
+    repl      {:doc              "Enter task REPL"
+               :task             (clojure.main/repl)
+               :override-builtin true}
+    build     {:doc  "Build solution of a single day"
+               :task (make/build kotlinc-root)}
+    run       {:doc  "Runthe solution"
+               :task (make/run kotlinc-root)}
+    fmt       {:extra-deps {zprint/zprint {:mvn/version "1.2.8"}}
+               :requires   ([zprint.main])
+               :task       (apply zprint.main/-main
+                             (concat ["{:search-config? true}"
+                                      "-lfsw"]
+                                     ["bb.edn"
+                                      ".zprint.edn"
+                                      "make.clj"]))}}}
